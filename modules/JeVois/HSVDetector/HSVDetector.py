@@ -23,9 +23,9 @@ class HSVDetector:
         self.blur_output = None
 
         self.__hsv_threshold_input = self.blur_output
-        self.__hsv_threshold_hue = [54.23728813559322, 91.76470588235293]
-        self.__hsv_threshold_saturation = [108.05084745762711, 255.0]
-        self.__hsv_threshold_value = [48.0225988700565, 123.18181818181817]
+        self.__hsv_threshold_hue = [74.57627118644068, 94.97326203208557]
+        self.__hsv_threshold_saturation = [86.44067796610169, 255.0]
+        self.__hsv_threshold_value = [40.819209039548014, 120.9090909090909]
 
         self.hsv_threshold_output = None
 
@@ -57,7 +57,7 @@ class HSVDetector:
         self.convex_hulls_output = None
 
         self.__filter_contours_contours = self.convex_hulls_output
-        self.__filter_contours_min_area = 150.0
+        self.__filter_contours_min_area = 50.0
         self.__filter_contours_min_perimeter = 0.0
         self.__filter_contours_min_width = 0.0
         self.__filter_contours_max_width = 1000.0
@@ -203,6 +203,44 @@ class HSVDetector:
 
         # solvePnP stuff should be revisted later
 
+        def cameraCalibrate():
+            #initialize constants
+            checkerboard_height = 6 
+            checkerboard_width = 9 #AYYYY
+            square_size = 0.9375
+
+            # termination criteria
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+            # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+            objp = np.zeros((checkerboard_height * checkerboard_width, 3), np.float32)
+            objp[:, :2] = np.mgrid[0:checkerboard_width, 0:checkerboard_height].T.reshape(-1, 2)
+            objp *= square_size
+
+            # Arrays to store object points and image points from all the images.
+            objpoints = [] # 3d point in real world space
+            imgpoints = [] # 2d points in image plane.
+
+            
+            ret, corners = cv2.findChessboardCorners(self.outimg, (7,6),None)
+
+            # If found, add object points, image points (after refining them)
+            if ret == True:
+                objpoints.append(objp)
+
+                corners2 = cv2.cornerSubPix(self.outimg,corners,(11,11),(-1,-1),criteria)
+                imgpoints.append(corners2)
+
+                # Draw and display the corners
+                imgChess = cv2.drawChessboardCorners(self.outimg, (7,6), corners2,ret)
+                    
+            # get rot/trans vectors, calibration coeff, camera matrix
+            ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, self.outimg.shape[::-1],None,None)
+            
+            #return camera matrix
+            return (ret, mtx, dist, rvecs, tvecs)
+
+        
         def solvePnP(imgPoints):
             rvec, tvec = cv2.solvePnP(OBJ_POINTS, imgPoints, CAMERA_MATRIX, None)
             return(rvec, tvec)
@@ -316,6 +354,16 @@ class HSVDetector:
             distance = (target_width_inches * focal_length) / target_width_px
             return distance
 
+        def get_distance_width_onecont(c):
+            left_inward_point = c[1][0]
+            right_inward_point = c[3][0]
+
+            target_width_px = right_inward_point - left_inward_point
+            focal_length = 341.3307738 #EYEBALLED - FIX LATER
+            target_width_in = 39.25
+            distance = (target_width_in * focal_length) / target_width_px
+            return distance
+
         def getRobotAngleToTurn():
             angleOffset = 6
             radians = math.radians(getTargetXDegrees() + angleOffset) 
@@ -346,10 +394,29 @@ class HSVDetector:
             #new_corners = getContourCorners(new_contour)
             #draw_extreme_onecont(new_contour)
             cv2.drawContours(self.outimg,[new_box],0,(255,0,0),2)
+
+            bot_left = tuple([new_box[0][0], new_box[0][1]])
+            top_left = tuple([new_box[1][0], new_box[1][1]])
+            bot_right = tuple([new_box[2][0], new_box[2][1]])
+            top_right = tuple([new_box[3][0], new_box[3][1]])
+            
+            cv2.circle(self.outimg, bot_left, 3, (0, 255, 0), -1)
+            cv2.circle(self.outimg, top_left, 3, (255, 0, 0), -1)
+            cv2.circle(self.outimg, bot_right, 3, (0, 0, 255), -1)
+            cv2.circle(self.outimg, top_right, 3, (255, 255, 255), -1)
+
             center = tuple([getXcoord(new_box), getYcoord(new_box)])
             cv2.circle(self.outimg,center, 5, (0,0,255), 2)
-            jevois.sendSerial(str(contourNum) + "/" + str(center))
+            jevois.sendSerial(str(contourNum) + "/" + str(center) + 
+                            "/" + str(get_distance_width_onecont(new_box)) + 
+                            "/" + str(top_left) + 
+                            "/" + str(bot_right) + 
+                            "/" + str(top_right) + 
+                            "/" + str(jevois.sendSerial(cameraCalibrate(self.outimg))))
 
+            
+
+            
         '''
         if(contourNum == 2):
             newContours = sortByPosition(self.filter_contours_output)
@@ -442,11 +509,11 @@ class HSVDetector:
     def __blur(src, type, radius):
         """Softens an image using one of several filters.
         Args:
-            src: The source mat (numpy.ndarray).
+            src: The source mat (np.ndarray).
             type: The blurType to perform represented as an int.
             radius: The radius for the blur as a float.
         Returns:
-            A numpy.ndarray that has been blurred.
+            A np.ndarray that has been blurred.
         """
         ksize = int(2 * round(radius) + 1)
         return cv2.blur(src, (ksize, ksize))
@@ -457,10 +524,10 @@ class HSVDetector:
     def __cv_extractchannel(src, channel):
         """Extracts given channel from an image.
         Args:
-            src: A numpy.ndarray.
+            src: A np.ndarray.
             channel: Zero indexed channel number to extract.
         Returns:
-             The result as a numpy.ndarray.
+             The result as a np.ndarray.
         """
         return cv2.extractChannel(src, (int) (channel + 0.5))
 
@@ -468,12 +535,12 @@ class HSVDetector:
     def __cv_threshold(src, thresh, max_val, type):
         """Apply a fixed-level threshold to each array element in an image
         Args:
-            src: A numpy.ndarray.
+            src: A np.ndarray.
             thresh: Threshold value.
             max_val: Maximum value for THRES_BINARY and THRES_BINARY_INV.
             type: Opencv enum.
         Returns:
-            A black and white numpy.ndarray.
+            A black and white np.ndarray.
         """
         return cv2.threshold(src, thresh, max_val, type)[1]
 
@@ -481,10 +548,10 @@ class HSVDetector:
     def __mask(input, mask):
         """Filter out an area of an image using a binary mask.
         Args:
-            input: A three channel numpy.ndarray.
-            mask: A black and white numpy.ndarray.
+            input: A three channel np.ndarray.
+            mask: A black and white np.ndarray.
         Returns:
-            A three channel numpy.ndarray.
+            A three channel np.ndarray.
         """
         return cv2.bitwise_and(input, input, mask=mask)
 
@@ -492,12 +559,12 @@ class HSVDetector:
     def __normalize(input, type, a, b):
         """Normalizes or remaps the values of pixels in an image.
         Args:
-            input: A numpy.ndarray.
+            input: A np.ndarray.
             type: Opencv enum.
             a: The minimum value.
             b: The maximum value.
         Returns:
-            A numpy.ndarray of the same type as the input.
+            A np.ndarray of the same type as the input.
         """
         return cv2.normalize(input, None, a, b, type)
 
@@ -505,12 +572,12 @@ class HSVDetector:
     def __hsv_threshold(input, hue, sat, val):
         """Segment an image based on hue, saturation, and value ranges.
         Args:
-            input: A BGR numpy.ndarray.
+            input: A BGR np.ndarray.
             hue: A list of two numbers the are the min and max hue.
             sat: A list of two numbers the are the min and max saturation.
             lum: A list of two numbers the are the min and max value.
         Returns:
-            A black and white numpy.ndarray.
+            A black and white np.ndarray.
         """
         out = cv2.cvtColor(input, cv2.COLOR_BGR2HSV)
         return cv2.inRange(out, (hue[0], sat[0], val[0]),  (hue[1], sat[1], val[1]))
@@ -519,13 +586,13 @@ class HSVDetector:
     def __cv_erode(src, kernel, anchor, iterations, border_type, border_value):
         """Expands area of lower value in an image.
         Args:
-           src: A numpy.ndarray.
-           kernel: The kernel for erosion. A numpy.ndarray.
+           src: A np.ndarray.
+           kernel: The kernel for erosion. A np.ndarray.
            iterations: the number of times to erode.
            border_type: Opencv enum that represents a border type.
            border_value: value to be used for a constant border.
         Returns:
-            A numpy.ndarray after erosion.
+            A np.ndarray after erosion.
         """
         return cv2.erode(src, kernel, anchor, iterations = (int) (iterations +0.5),
                             borderType = border_type, borderValue = border_value)
@@ -534,13 +601,13 @@ class HSVDetector:
     def __cv_dilate(src, kernel, anchor, iterations, border_type, border_value):
         """Expands area of higher value in an image.
         Args:
-           src: A numpy.ndarray.
-           kernel: The kernel for dilation. A numpy.ndarray.
+           src: A np.ndarray.
+           kernel: The kernel for dilation. A np.ndarray.
            iterations: the number of times to dilate.
            border_type: Opencv enum that represents a border type.
            border_value: value to be used for a constant border.
         Returns:
-            A numpy.ndarray after dilation.
+            A np.ndarray after dilation.
         """
         return cv2.dilate(src, kernel, anchor, iterations = (int) (iterations +0.5),
                             borderType = border_type, borderValue = border_value)
@@ -549,10 +616,10 @@ class HSVDetector:
     def __find_contours(input, external_only):
         """Sets the values of pixels in a binary image to their distance to the nearest black pixel.
         Args:
-            input: A numpy.ndarray.
+            input: A np.ndarray.
             external_only: A boolean. If true only external contours are found.
         Return:
-            A list of numpy.ndarray where each one represents a contour.
+            A list of np.ndarray where each one represents a contour.
         """
         if(external_only):
             mode = cv2.RETR_EXTERNAL
@@ -568,7 +635,7 @@ class HSVDetector:
                         min_ratio, max_ratio):
         """Filters out contours that do not meet certain criteria.
         Args:
-            input_contours: Contours as a list of numpy.ndarray.
+            input_contours: Contours as a list of np.ndarray.
             min_area: The minimum area of a contour that will be kept.
             min_perimeter: The minimum perimeter of a contour that will be kept.
             min_width: Minimum width of a contour.
@@ -581,7 +648,7 @@ class HSVDetector:
             min_ratio: Minimum ratio of width to height.
             max_ratio: Maximum ratio of width to height.
         Returns:
-            Contours as a list of numpy.ndarray.
+            Contours as a list of np.ndarray.
         """
         output = []
         for contour in input_contours:
