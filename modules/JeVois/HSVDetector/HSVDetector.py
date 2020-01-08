@@ -338,17 +338,17 @@ class HSVDetector:
 
         #use for 1 contour
         newContours = sortByPosition(self.filter_contours_output)
-        if(contourNum > 1):
+        if(contourNum >= 1):
             new_contour = newContours[contourNum-1]
             new_rect = cv2.minAreaRect(new_contour)
             new_box = cv2.boxPoints(new_rect)
             new_box = np.int0(new_box)
             #new_corners = getContourCorners(new_contour)
-            draw_extreme_onecont(new_contour)
+            #draw_extreme_onecont(new_contour)
             cv2.drawContours(self.outimg,[new_box],0,(255,0,0),2)
-            center = tuple([getXcoord(new_contour), getYcoord(new_contour)])
+            center = tuple([getXcoord(new_box), getYcoord(new_box)])
             cv2.circle(self.outimg,center, 5, (0,0,255), 2)
-            jevois.sendSerial(str(contourNum) + "/" + str(getXcoord(new_contour)) + "/" + str(getYcoord(new_contour)))
+            jevois.sendSerial(str(contourNum) + "/" + str(center))
 
         '''
         if(contourNum == 2):
@@ -559,7 +559,7 @@ class HSVDetector:
         else:
             mode = cv2.RETR_LIST
         method = cv2.CHAIN_APPROX_SIMPLE
-        im2, contours, hierarchy =cv2.findContours(input, mode=mode, method=method)
+        contours, hierarchy =cv2.findContours(input, mode=mode, method=method)
         return contours
 
     @staticmethod
