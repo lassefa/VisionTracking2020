@@ -149,11 +149,18 @@ class HSVDetector:
 
 ##################################################################################################
 
-        CAMERA_MATRIX = np.array([[332.75, 0, 160],
-                                 [0, 332.77, 120],
-                                 [0,0,1]])
+        #CAMERA_MATRIX = np.array([[332.75, 0, 160],
+                                 #[0, 332.77, 120],
+                                 #[0,0,1]])
+        CAMERA_MATRIX = np.array([[341.3307738, 0.0, 272.656381232],
+                                 [0.0, 341.3307738, 120.39003316],
+                                 [0.0, 0.0, 1.0]])
 
-        OBJ_POINTS = [(149, 67), (123, 59), (139, 5), (166 , 13)]
+        #OBJ_POINTS = [(149, 67), (123, 59), (139, 5), (166 , 13)] #change for vision targets
+
+        OBJ_POINTS = [(39.25,0), (39.25,8.25), (0,8.25), (0,0)]
+
+        DISTORT_COEFF = [-0.2669863073950092, 7.945720475711938, 0.008580386134685421, 0.0016971343119242517,-44.41610399111706]
 
         def polygon(c, epsil):
             """Remove concavities from a contour and turn it into a polygon."""
@@ -199,51 +206,30 @@ class HSVDetector:
             cv2.circle(self.outimg, right_extTop, 3, (255, 0, 0), -1)
             cv2.circle(self.outimg, right_extBot, 3, (255, 255, 0), -1)
 
-        
-
         # solvePnP stuff should be revisted later
-
-        def cameraCalibrate():
-            #initialize constants
-            checkerboard_height = 6 
-            checkerboard_width = 9 #AYYYY
-            square_size = 0.9375
-
-            # termination criteria
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-            # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-            objp = np.zeros((checkerboard_height * checkerboard_width, 3), np.float32)
-            objp[:, :2] = np.mgrid[0:checkerboard_width, 0:checkerboard_height].T.reshape(-1, 2)
-            objp *= square_size
-
-            # Arrays to store object points and image points from all the images.
-            objpoints = [] # 3d point in real world space
-            imgpoints = [] # 2d points in image plane.
-
-            
-            ret, corners = cv2.findChessboardCorners(self.outimg, (7,6),None)
-
-            # If found, add object points, image points (after refining them)
-            if ret == True:
-                objpoints.append(objp)
-
-                corners2 = cv2.cornerSubPix(self.outimg,corners,(11,11),(-1,-1),criteria)
-                imgpoints.append(corners2)
-
-                # Draw and display the corners
-                imgChess = cv2.drawChessboardCorners(self.outimg, (7,6), corners2,ret)
-                    
-            # get rot/trans vectors, calibration coeff, camera matrix
-            ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, self.outimg.shape[::-1],None,None)
-            
-            #return camera matrix
-            return (ret, mtx, dist, rvecs, tvecs)
 
         
         def solvePnP(imgPoints):
-            rvec, tvec = cv2.solvePnP(OBJ_POINTS, imgPoints, CAMERA_MATRIX, None)
-            return(rvec, tvec)
+            rvec, tvec = cv2.solvePnP(OBJ_POINTS, imgPoints, CAMERA_MATRIX, DISTORT_COEFF)
+
+            #see liger docs
+            x = tvec[0][0]
+            z = tvec[2][0]
+
+            #horiz plane dist btwn camera and target
+            distance = math.sqrt(x**2 + z**2)
+
+            #angle between camera and target point
+            angle1 = math.atan2(x,z)
+
+            rot, _ = cv2.Rodrigues(rvec)
+            rot_inv = rot.transpose()
+            pzero_world = numpy.matmul(rot_inv, -tvec)
+            #angle between target and camera point
+            angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
+
+           
+            return (distance, angle1, angle2)
 
         def draw(img, corners, rvec, tvec):
             axis = np.float32([[0,0,0], [0,3,0], [3,3,0], [3,0,0], 
@@ -411,74 +397,9 @@ class HSVDetector:
                             "/" + str(get_distance_width_onecont(new_box)) + 
                             "/" + str(top_left) + 
                             "/" + str(bot_right) + 
-                            "/" + str(top_right) + 
-                            "/" + str(jevois.sendSerial(cameraCalibrate(self.outimg))))
+                            "/" + str(top_right) +
+                            "/" + str(solvePnP([bot_right, top_right, top_left, bot_left])))
 
-            
-
-            
-        '''
-        if(contourNum == 2):
-            newContours = sortByPosition(self.filter_contours_output)
-            if(get_orientation(newContours[0]) == 1 or get_orientation(newContours[1]) == 2):
-                if(getXcoord(newContours[0]) < getXcoord(newContours[1])):
-                    left_contour = newContours[0]
-                    right_contour = newContours[1]
-                    drawRectContours(left_contour, right_contour)
-                    draw_extreme_points(left_contour, right_contour)
-                    toSend = ("/" + str(contourNum) +
-                        "/" + str(getArea(left_contour) + getArea(right_contour)) +  # Total area 
-                        "/" + str(round(getTwoContourCenter(left_contour, right_contour)[0] - 160, 2)) + # center x point; -160 to 160 scale to be used in robot code
-                        "/" + str(round(120 - getTwoContourCenter(left_contour, right_contour)[1], 2))) #+ # center y point
-                        #"/" + str(round(getDistanceWithWidth(left_contour, right_contour))))
-                    # rvec, tvec = solvePnP(getContourCorners(left_contour))
-                    # draw(self.outimg, corners, rvec, tvec)
-                    # toSend = ("Degrees: " + str(getTargetYDegrees()) + 
-                    #     "Distance: " + str(getDistance()) + 
-                    #     "Horizontal Angle: " + str(getRobotAngleToTurn()))
-                    jevois.sendSerial(toSend)
-            elif(get_orientation(newContours[0]) == 3 or get_orientation(newContours[1]) == 3):
-                toSend = "rip"
-                jevois.sendSerial(toSend)
-
-        elif (contourNum == 3):
-            sortedByPosition = sortByPosition(self.filter_contours_output) # left to right
-            mid_contour = sortedByPosition[1]
-            if(get_orientation(mid_contour) == 1):
-                left_contour = mid_contour 
-                right_contour = sortedByPosition[2]
-                drawRectContours(left_contour, right_contour)
-            elif(get_orientation(mid_contour) == 2):
-                right_contour = mid_contour
-                left_contour = sortedByPosition[0]
-                drawRectContours(left_contour, right_contour)
-            draw_extreme_points(left_contour, right_contour)
-            toSend = ("/" + str(contourNum) +
-                    "/" + str(getArea(left_contour) + getArea(right_contour)) +  # Total area 
-                    "/" + str(round(getTwoContourCenter(left_contour, right_contour)[0] - 160, 2)) + # center x point; -160 to 160 scale to be used in robot code
-                    "/" + str(round(120 - getTwoContourCenter(left_contour, right_contour)[1], 2))) # center y point
-                    #"/" + str(round(getDistanceWithWidth(left_contour, right_contour))))
-            jevois.sendSerial(toSend)
-        else:
-            toSend = "/0/0/0/0/0/0"
-            jevois.sendSerial(toSend)
-        '''
-
-        # vertical center line
-        #cv2.line(self.outimg, (160, 0), (160, 240), (255, 0, 0), 2)
-
-
-        # Write a title:
-      #  cv2.putText(self.outimg, "687 Nerdy JeVois", (3, 20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
-
-        # Write frames/s info from our timer into the edge map (NOTE: does not account for output conversion time):
-        # fps = self.timer.stop()
-        #height, width, channels = outimg.shape # if outimg is grayscale, change to: height, width = outimg.shape
-        # self.end_time = time.time()
-        # delta_time = self.end_time - self.start_time
-
-        #height, width, channels = self.outimg.shape
-        # cv2.putText(outimg, fps, (3, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
 
     def process(self, inframe, outframe):
         self.processNoUSB(inframe)
