@@ -154,13 +154,14 @@ class HSVDetector:
                                  #[0,0,1]])
         CAMERA_MATRIX = np.array([[341.3307738, 0.0, 272.656381232],
                                  [0.0, 341.3307738, 120.39003316],
-                                 [0.0, 0.0, 1.0]])
+                                 [0.0, 0.0, 1.0]], dtype=np.float64)
 
         #OBJ_POINTS = [(149, 67), (123, 59), (139, 5), (166 , 13)] #change for vision targets
 
-        OBJ_POINTS = [(39.25,0), (39.25,8.25), (0,8.25), (0,0)]
+        OBJ_POINTS = np.array([[39.25,0.0,0.0], [39.25,8.25,0.0], [0.0,8.25,0.0], [0.0,0.0,0.0]], dtype=np.float32)
 
-        DISTORT_COEFF = [-0.2669863073950092, 7.945720475711938, 0.008580386134685421, 0.0016971343119242517,-44.41610399111706]
+        DISTORT_COEFF = None
+       # DISTORT_COEFF = np.array([-0.2669863073950092, 7.945720475711938, 0.008580386134685421, 0.0016971343119242517,-44.41610399111706])
 
         def polygon(c, epsil):
             """Remove concavities from a contour and turn it into a polygon."""
@@ -209,8 +210,8 @@ class HSVDetector:
         # solvePnP stuff should be revisted later
 
         
-        def solvePnP(imgPoints):
-            rvec, tvec = cv2.solvePnP(OBJ_POINTS, imgPoints, CAMERA_MATRIX, DISTORT_COEFF)
+        def distance_PnP(imgPoints):
+            retval, rvec, tvec = cv2.solvePnP(OBJ_POINTS, imgPoints, CAMERA_MATRIX, DISTORT_COEFF)
 
             #see liger docs
             x = tvec[0][0]
@@ -224,12 +225,12 @@ class HSVDetector:
 
             rot, _ = cv2.Rodrigues(rvec)
             rot_inv = rot.transpose()
-            pzero_world = numpy.matmul(rot_inv, -tvec)
+            pzero_world = np.matmul(rot_inv, -tvec)
             #angle between target and camera point
             angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
 
-           
-            return (distance, angle1, angle2)
+            pnpstr = "PNPDIST: " + str(distance) + " ANGLE1: " + str(angle1) + " ANGLE2: " + str(angle2)
+            return pnpstr
 
         def draw(img, corners, rvec, tvec):
             axis = np.float32([[0,0,0], [0,3,0], [3,3,0], [3,0,0], 
@@ -391,14 +392,13 @@ class HSVDetector:
             cv2.circle(self.outimg, bot_right, 3, (0, 0, 255), -1)
             cv2.circle(self.outimg, top_right, 3, (255, 255, 255), -1)
 
+            pnp_points = np.array([np.asarray(bot_right), np.asarray(top_right), np.asarray(top_left), np.asarray(bot_left)], dtype=np.float32)
+
             center = tuple([getXcoord(new_box), getYcoord(new_box)])
             cv2.circle(self.outimg,center, 5, (0,0,255), 2)
-            jevois.sendSerial(str(contourNum) + "/" + str(center) + 
-                            "/" + str(get_distance_width_onecont(new_box)) + 
-                            "/" + str(top_left) + 
-                            "/" + str(bot_right) + 
-                            "/" + str(top_right) +
-                            "/" + str(solvePnP([bot_right, top_right, top_left, bot_left])))
+            jevois.sendSerial(str(contourNum) + "/CENTER:" + str(center) + 
+                            "/DISTANCE:" + str(get_distance_width_onecont(new_box)) + 
+                            "/SOLVEPNP:" + str(distance_PnP(pnp_points)))
 
 
     def process(self, inframe, outframe):
