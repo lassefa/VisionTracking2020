@@ -23,9 +23,9 @@ class HSVDetector:
         self.blur_output = None
 
         self.__hsv_threshold_input = self.blur_output
-        self.__hsv_threshold_hue = [74.57627118644068, 94.97326203208557]
-        self.__hsv_threshold_saturation = [86.44067796610169, 255.0]
-        self.__hsv_threshold_value = [40.819209039548014, 120.9090909090909]
+        self.__hsv_threshold_hue = [45.76271186440677, 88.55614973262034]
+        self.__hsv_threshold_saturation = [146.4689265536723, 255.0]
+        self.__hsv_threshold_value = [64.83050847457626, 136.81818181818184]
 
         self.hsv_threshold_output = None
 
@@ -41,7 +41,7 @@ class HSVDetector:
         self.__cv_dilate_src = self.cv_erode_output
         self.__cv_dilate_kernel = None
         self.__cv_dilate_anchor = (-1, -1)
-        self.__cv_dilate_iterations = 4.0
+        self.__cv_dilate_iterations = 7.0
         self.__cv_dilate_bordertype = cv2.BORDER_CONSTANT
         self.__cv_dilate_bordervalue = (-1)
 
@@ -52,30 +52,39 @@ class HSVDetector:
 
         self.find_contours_output = None
 
-        self.__convex_hulls_contours = self.find_contours_output
+        self.__filter_contours_0_contours = self.find_contours_output
+        self.__filter_contours_0_min_area = 0
+        self.__filter_contours_0_min_perimeter = 0
+        self.__filter_contours_0_min_width = 0
+        self.__filter_contours_0_max_width = 1000
+        self.__filter_contours_0_min_height = 0
+        self.__filter_contours_0_max_height = 1000
+        self.__filter_contours_0_solidity = [0.0, 65.24064171122996]
+        self.__filter_contours_0_max_vertices = 1000000
+        self.__filter_contours_0_min_vertices = 0
+        self.__filter_contours_0_min_ratio = 0
+        self.__filter_contours_0_max_ratio = 1000
+
+        self.filter_contours_0_output = None
+
+        self.__convex_hulls_contours = self.filter_contours_0_output
 
         self.convex_hulls_output = None
 
-        self.__filter_contours_contours = self.convex_hulls_output
-        self.__filter_contours_min_area = 50.0
-        self.__filter_contours_min_perimeter = 0.0
-        self.__filter_contours_min_width = 0.0
-        self.__filter_contours_max_width = 1000.0
-        self.__filter_contours_min_height = 0.0
-        self.__filter_contours_max_height = 1000.0
-        self.__filter_contours_solidity = [0, 100]
-        self.__filter_contours_max_vertices = 1000000.0
-        self.__filter_contours_min_vertices = 0.0
-        self.__filter_contours_min_ratio = 0.0
-        self.__filter_contours_max_ratio = 1000.0
+        self.__filter_contours_1_contours = self.convex_hulls_output
+        self.__filter_contours_1_min_area = 50.0
+        self.__filter_contours_1_min_perimeter = 0.0
+        self.__filter_contours_1_min_width = 0.0
+        self.__filter_contours_1_max_width = 1000.0
+        self.__filter_contours_1_min_height = 0.0
+        self.__filter_contours_1_max_height = 1000.0
+        self.__filter_contours_1_solidity = [0, 100]
+        self.__filter_contours_1_max_vertices = 1000000.0
+        self.__filter_contours_1_min_vertices = 0.0
+        self.__filter_contours_1_min_ratio = 0.0
+        self.__filter_contours_1_max_ratio = 1000.0
 
-        self.filter_contours_output = None
-        # self.end_time = 0
-
-        # END CONSTANTS
-    # ###################################################################################################
-
-    ## Process function with USB output
+        self.filter_contours_1_output = None
 
     def processNoUSB(self, inframe):
         source0 = inimg = inframe.getCvBGR()
@@ -114,8 +123,16 @@ class HSVDetector:
         (self.find_contours_output) = self.__find_contours(self.__find_contours_input, self.__find_contours_external_only)
 
         # Step Filter_Contours0:
-        self.__filter_contours_contours = self.find_contours_output
-        (self.filter_contours_output) = self.__filter_contours(self.__filter_contours_contours, self.__filter_contours_min_area, self.__filter_contours_min_perimeter, self.__filter_contours_min_width, self.__filter_contours_max_width, self.__filter_contours_min_height, self.__filter_contours_max_height, self.__filter_contours_solidity, self.__filter_contours_max_vertices, self.__filter_contours_min_vertices, self.__filter_contours_min_ratio, self.__filter_contours_max_ratio)
+        self.__filter_contours_0_contours = self.find_contours_output
+        (self.filter_contours_0_output) = self.__filter_contours(self.__filter_contours_0_contours, self.__filter_contours_0_min_area, self.__filter_contours_0_min_perimeter, self.__filter_contours_0_min_width, self.__filter_contours_0_max_width, self.__filter_contours_0_min_height, self.__filter_contours_0_max_height, self.__filter_contours_0_solidity, self.__filter_contours_0_max_vertices, self.__filter_contours_0_min_vertices, self.__filter_contours_0_min_ratio, self.__filter_contours_0_max_ratio)
+
+        # Step Convex_Hulls0:
+        self.__convex_hulls_contours = self.filter_contours_0_output
+        (self.convex_hulls_output) = self.__convex_hulls(self.__convex_hulls_contours)
+
+        # Step Filter_Contours1:
+        self.__filter_contours_1_contours = self.convex_hulls_output
+        (self.filter_contours_1_output) = self.__filter_contours(self.__filter_contours_1_contours, self.__filter_contours_1_min_area, self.__filter_contours_1_min_perimeter, self.__filter_contours_1_min_width, self.__filter_contours_1_max_width, self.__filter_contours_1_min_height, self.__filter_contours_1_max_height, self.__filter_contours_1_solidity, self.__filter_contours_1_max_vertices, self.__filter_contours_1_min_vertices, self.__filter_contours_1_min_ratio, self.__filter_contours_1_max_ratio)
 
 #################################################################################################
 
@@ -152,15 +169,13 @@ class HSVDetector:
         #CAMERA_MATRIX = np.array([[332.75, 0, 160],
                                  #[0, 332.77, 120],
                                  #[0,0,1]])
-        CAMERA_MATRIX = np.array([[341.3307738, 0.0, 272.656381232],
-                                 [0.0, 341.3307738, 120.39003316],
-                                 [0.0, 0.0, 1.0]], dtype=np.float64)
+        CAMERA_MATRIX = np.array([[1540.2593503023706, 0.0, 329.1048437051921], [0.0, 1532.2460058518225, 219.70632394577117], [0.0, 0.0, 1.0]], dtype=np.float64)
 
         #OBJ_POINTS = [(149, 67), (123, 59), (139, 5), (166 , 13)] #change for vision targets
 
         OBJ_POINTS = np.array([[39.25,0.0,0.0], [39.25,8.25,0.0], [0.0,8.25,0.0], [0.0,0.0,0.0]], dtype=np.float32)
 
-        DISTORT_COEFF = None
+        DISTORT_COEFF = np.array([[1.9245597152881653, -141.62229185288265, 0.020758491904300156, 0.042110713172383754, 2705.2512798292632]], dtype=np.float32);
        # DISTORT_COEFF = np.array([-0.2669863073950092, 7.945720475711938, 0.008580386134685421, 0.0016971343119242517,-44.41610399111706])
 
         def polygon(c, epsil):
@@ -366,13 +381,14 @@ class HSVDetector:
             calculatedAngle = math.degrees((math.pi / 2 - b))
             return calculatedAngle
 
-        contourNum = len(self.filter_contours_output)
+        contourNum = len(self.filter_contours_1_output)
 
         # Sorts contours by the smallest area first
-        newContours = sortByArea(self.filter_contours_output)
+        newContours = sortByArea(self.filter_contours_1_output)
 
         #use for 1 contour
-        newContours = sortByPosition(self.filter_contours_output)
+        newContours = sortByPosition(self.filter_contours_1_output)
+        
         if(contourNum >= 1):
             new_contour = newContours[contourNum-1]
             new_rect = cv2.minAreaRect(new_contour)
@@ -380,7 +396,7 @@ class HSVDetector:
             new_box = np.int0(new_box)
             #new_corners = getContourCorners(new_contour)
             #draw_extreme_onecont(new_contour)
-            cv2.drawContours(self.outimg,[new_box],0,(255,0,0),2)
+            #cv2.drawContours(self.outimg,[new_box],0,(255,0,0),2)
 
             bot_left = tuple([new_box[0][0], new_box[0][1]])
             top_left = tuple([new_box[1][0], new_box[1][1]])
@@ -425,7 +441,7 @@ class HSVDetector:
 ###################################################################################################
 
     # FUNCTIONS GO HERE (Anything that starts with "@staticmethod")
-
+    
     @staticmethod
     def __blur(src, type, radius):
         """Softens an image using one of several filters.
@@ -442,63 +458,15 @@ class HSVDetector:
         #return cv2.GaussianBlur(src,(ksize, ksize),0) # Perform a Gaussian Blur
 
     @staticmethod
-    def __cv_extractchannel(src, channel):
-        """Extracts given channel from an image.
-        Args:
-            src: A np.ndarray.
-            channel: Zero indexed channel number to extract.
-        Returns:
-             The result as a np.ndarray.
-        """
-        return cv2.extractChannel(src, (int) (channel + 0.5))
-
-    @staticmethod
-    def __cv_threshold(src, thresh, max_val, type):
-        """Apply a fixed-level threshold to each array element in an image
-        Args:
-            src: A np.ndarray.
-            thresh: Threshold value.
-            max_val: Maximum value for THRES_BINARY and THRES_BINARY_INV.
-            type: Opencv enum.
-        Returns:
-            A black and white np.ndarray.
-        """
-        return cv2.threshold(src, thresh, max_val, type)[1]
-
-    @staticmethod
-    def __mask(input, mask):
-        """Filter out an area of an image using a binary mask.
-        Args:
-            input: A three channel np.ndarray.
-            mask: A black and white np.ndarray.
-        Returns:
-            A three channel np.ndarray.
-        """
-        return cv2.bitwise_and(input, input, mask=mask)
-
-    @staticmethod
-    def __normalize(input, type, a, b):
-        """Normalizes or remaps the values of pixels in an image.
-        Args:
-            input: A np.ndarray.
-            type: Opencv enum.
-            a: The minimum value.
-            b: The maximum value.
-        Returns:
-            A np.ndarray of the same type as the input.
-        """
-        return cv2.normalize(input, None, a, b, type)
-
-    @staticmethod
     def __hsv_threshold(input, hue, sat, val):
         """Segment an image based on hue, saturation, and value ranges.
         Args:
-            input: A BGR np.ndarray.
+            input: A BGR numpy.ndarray.
             hue: A list of two numbers the are the min and max hue.
             sat: A list of two numbers the are the min and max saturation.
             lum: A list of two numbers the are the min and max value.
         Returns:
-            A black and white np.ndarray.
+            A black and white numpy.ndarray.
         """
         out = cv2.cvtColor(input, cv2.COLOR_BGR2HSV)
         return cv2.inRange(out, (hue[0], sat[0], val[0]),  (hue[1], sat[1], val[1]))
@@ -507,13 +475,13 @@ class HSVDetector:
     def __cv_erode(src, kernel, anchor, iterations, border_type, border_value):
         """Expands area of lower value in an image.
         Args:
-           src: A np.ndarray.
-           kernel: The kernel for erosion. A np.ndarray.
+           src: A numpy.ndarray.
+           kernel: The kernel for erosion. A numpy.ndarray.
            iterations: the number of times to erode.
            border_type: Opencv enum that represents a border type.
            border_value: value to be used for a constant border.
         Returns:
-            A np.ndarray after erosion.
+            A numpy.ndarray after erosion.
         """
         return cv2.erode(src, kernel, anchor, iterations = (int) (iterations +0.5),
                             borderType = border_type, borderValue = border_value)
@@ -522,13 +490,13 @@ class HSVDetector:
     def __cv_dilate(src, kernel, anchor, iterations, border_type, border_value):
         """Expands area of higher value in an image.
         Args:
-           src: A np.ndarray.
-           kernel: The kernel for dilation. A np.ndarray.
+           src: A numpy.ndarray.
+           kernel: The kernel for dilation. A numpy.ndarray.
            iterations: the number of times to dilate.
            border_type: Opencv enum that represents a border type.
            border_value: value to be used for a constant border.
         Returns:
-            A np.ndarray after dilation.
+            A numpy.ndarray after dilation.
         """
         return cv2.dilate(src, kernel, anchor, iterations = (int) (iterations +0.5),
                             borderType = border_type, borderValue = border_value)
@@ -537,10 +505,10 @@ class HSVDetector:
     def __find_contours(input, external_only):
         """Sets the values of pixels in a binary image to their distance to the nearest black pixel.
         Args:
-            input: A np.ndarray.
+            input: A numpy.ndarray.
             external_only: A boolean. If true only external contours are found.
         Return:
-            A list of np.ndarray where each one represents a contour.
+            A list of numpy.ndarray where each one represents a contour.
         """
         if(external_only):
             mode = cv2.RETR_EXTERNAL
@@ -551,12 +519,25 @@ class HSVDetector:
         return contours
 
     @staticmethod
+    def __convex_hulls(input_contours):
+        """Computes the convex hulls of contours.
+        Args:
+            input_contours: A list of numpy.ndarray that each represent a contour.
+        Returns:
+            A list of numpy.ndarray that each represent a contour.
+        """
+        output = []
+        for contour in input_contours:
+            output.append(cv2.convexHull(contour))
+        return output
+
+    @staticmethod
     def __filter_contours(input_contours, min_area, min_perimeter, min_width, max_width,
                         min_height, max_height, solidity, max_vertex_count, min_vertex_count,
                         min_ratio, max_ratio):
         """Filters out contours that do not meet certain criteria.
         Args:
-            input_contours: Contours as a list of np.ndarray.
+            input_contours: Contours as a list of numpy.ndarray.
             min_area: The minimum area of a contour that will be kept.
             min_perimeter: The minimum perimeter of a contour that will be kept.
             min_width: Minimum width of a contour.
@@ -569,7 +550,7 @@ class HSVDetector:
             min_ratio: Minimum ratio of width to height.
             max_ratio: Maximum ratio of width to height.
         Returns:
-            Contours as a list of np.ndarray.
+            Contours as a list of numpy.ndarray.
         """
         output = []
         for contour in input_contours:
@@ -594,3 +575,4 @@ class HSVDetector:
                 continue
             output.append(contour)
         return output
+
